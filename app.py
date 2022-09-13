@@ -1,4 +1,4 @@
-from flask import Flask, g
+from flask import Flask, g, request
 from database import get_db
 
 app = Flask(__name__)
@@ -10,7 +10,17 @@ def close_db(error):
 
 @app.route('/members', methods=['GET'])
 def get_members():
-    return 'This returns all the members.'
+    new_member_data =request.get_json()
+    
+    name = new_member_data['name']
+    email = new_member_data['email']
+    level = new_member_data['level']
+    
+    db = get_db()
+
+    db.execute('insert into members (name, email, level) values (?,?,?)',[name, email, level])
+    db.commit()
+    return 'The name is {}, email is {}, level is {}'.format(name,email, level)
 
 @app.route('/members/<int:member_id>', methods=['GET'])
 def get_member(member_id):
@@ -18,6 +28,7 @@ def get_member(member_id):
 
 @app.route('/members', methods=['POST'])
 def add_member():
+
     return 'This adds a new member.'
 
 @app.route('/members/<int:member_id>', methods=['PUT', 'PATCH'])
