@@ -1,7 +1,19 @@
 from flask import Flask, g, request, jsonify
 from database import get_db
-
+from functools import wraps
 app = Flask(__name__)
+
+api_username = 'admin'
+api_password = 'password'
+
+def protected(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth = request.authorization
+        if auth and auth.username ==api_username and auth.password==api_password:
+            return f(*args, **kwargs)
+        return jsonify({'message':'Authentication failed!'}),403
+    return decorated
 
 @app.teardown_appcontext
 def close_db(error):
@@ -9,6 +21,7 @@ def close_db(error):
         g.sqlite_db.close()
 
 @app.route('/members', methods=['GET'])
+@protected
 def get_members():
     db = get_db()
 
@@ -28,6 +41,7 @@ def get_members():
 
     return jsonify({'members': return_values})
 @app.route('/members/<int:member_id>', methods=['GET'])
+@protected
 def get_member(member_id):
     db = get_db()
 
@@ -41,7 +55,9 @@ def get_member(member_id):
         'level': member['level']
     })
 
+
 @app.route('/members', methods=['POST'])
+@protected
 def add_member():
     new_member_data =request.get_json()
     
@@ -66,12 +82,40 @@ def add_member():
 
 
 @app.route('/members/<int:member_id>', methods=['PUT', 'PATCH'])
+@protected
 def edit_member(member_id):
-    return 'This updates a member by ID.'
+    update_member_data = request.get_json()
+    name = update_member_data.get('name')
+    email = update_member_data.get('email')
+    level = update_member_data.get('level')
 
+    db = get_db()
+
+    db.execute('update members set name = ?, email = ?, level = ? where id = ?', [name,email,level, member_id])
+
+    
+    member_cur = db.execute('select * from members where id = ?', [member_id])
+    member = member_cur.fetchone()
+
+    return jsonify({
+        'id' : member['id'],
+        'name': member['name'],
+        'email': member['email'],
+        'level': member['level']
+    })
 @app.route('/members/<int:member_id>', methods=['DELETE'])
+@protected
 def delete_member(member_id):
-    return 'This removes a member by ID.'
+    
+    db = get_db()
+
+    db.execute('delete from members where id = ?', [member_id])
+    db.commit()
+
+    return jsonify({
+        'message':'The member has been successfully deleted.',
+        'id': member_id
+    })
 
 if __name__ == '__main__':
     app.run(debug=True)
